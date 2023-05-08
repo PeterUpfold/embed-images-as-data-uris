@@ -1,0 +1,8 @@
+{
+    "name": "embed-images-as-data-uris",
+    "version": "1.0.0",
+    "description": "As part of an article-to-offline-ePub workflow, take referenced images in an HTML document, download them and embed them as data: URI resources.",
+    "dependencies": {
+        "axios": "^1.4.0"
+    }
+}
