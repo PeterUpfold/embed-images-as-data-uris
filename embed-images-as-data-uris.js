@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 // does this assume argv[1] is "node"? Would it always be? Hmmm... 
 const inputFile = process.argv[2];
@@ -27,12 +28,21 @@ if (!inputFile || !outputFile) {
 }
 
 async function downloadAndEmbedImages(html) {
+    const parsed = cheerio.load(html);
     const matches = html.match(/<img.+?src="(.+?)".*?>/g) || [];
-    const promises = matches.map(async (match) => {
-        const src = match.match(/<img.+?src="(.+?)".*?>/)[1]; // second capture group
+    const promises = parsed('img').map(async (i, match) => {
+        const src = (new URL(parsed(match).attr('src'))).href;
+        // sleep a random amount of time to reduce load
+        const sleepLength = Math.random() * 1000 * Math.min(20, matches.length);
+        console.log(`Sleep task for ${src} for ${sleepLength}ms`);
+
+        await new Promise(resolve => setTimeout(resolve, sleepLength));
+
+
         let response;
         console.log(`To download ${src}`);
         try {
+
             response = await axios.get(src, {
                 responseType: 'arraybuffer',
                 headers: {
@@ -51,16 +61,26 @@ async function downloadAndEmbedImages(html) {
 
         console.log(`Downloaded ${src} with apparent mimetype ${mimeTypeSani}`);
         console.log(`Will replace ${src} with the data:${mimeTypeSani};base64,${response.data.toString('base64').substring(0, 20)}...`);
-        return match.replace(src, `data:${mimeTypeSani};base64,${response.data.toString('base64')}`);
+        parsed(match).attr('src', `data:${mimeTypeSani};base64,${response.data.toString('base64')}`);
+        parsed(match).removeAttr('srcSet'); // additional attributes cause crashes on the Sony??
+        parsed(match).removeAttr('srcset');
+        parsed(match).removeAttr('sizes'); 
+
+        // get all data- attrs. They are useless to me. Cast them out!
+        const dataAttribsToRemove = [];
+        for (const attr in match.attribs) { // odd syntax here where we can just pass the node and not send it back through Cheerio
+            if (attr.startsWith('data-')) {
+                dataAttribsToRemove.push(attr);
+            }
+        }
+        dataAttribsToRemove.forEach(attr => {
+            parsed(match).removeAttr(attr);
+        })
+
     });
 
-    const updatedMatches = await Promise.all(promises);
-    let updatedHtml = html;
-
-    for (let i = 0; i < matches.length; i++) {
-        updatedHtml = updatedHtml.replace(matches[i], updatedMatches[i]);
-    }    
-    return updatedHtml;
+    await Promise.all(promises);
+    return parsed.html();
 }
 
 async function main() {
