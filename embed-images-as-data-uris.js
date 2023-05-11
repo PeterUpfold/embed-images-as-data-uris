@@ -32,6 +32,12 @@ async function downloadAndEmbedImages(html) {
     const matches = html.match(/<img.+?src="(.+?)".*?>/g) || [];
     const promises = parsed('img').map(async (i, match) => {
         const src = (new URL(parsed(match).attr('src'))).href;
+
+        if (src.startsWith('data:')) {
+            // no action required
+            return;
+        }
+
         // sleep a random amount of time to reduce load
         const sleepLength = Math.random() * 1000 * Math.min(20, matches.length);
         console.log(`Sleep task for ${src} for ${sleepLength}ms`);
@@ -60,7 +66,7 @@ async function downloadAndEmbedImages(html) {
         // response.data is already a Buffer, so just toString('base64') it
 
         console.log(`Downloaded ${src} with apparent mimetype ${mimeTypeSani}`);
-        console.log(`Will replace ${src} with the data:${mimeTypeSani};base64,${response.data.toString('base64').substring(0, 20)}...`);
+        //console.log(`Will replace ${src} with the data:${mimeTypeSani};base64,${response.data.toString('base64').substring(0, 20)}...`);
         parsed(match).attr('src', `data:${mimeTypeSani};base64,${response.data.toString('base64')}`);
         parsed(match).removeAttr('srcSet'); // additional attributes cause crashes on the Sony??
         parsed(match).removeAttr('srcset');
@@ -88,8 +94,6 @@ async function main() {
     console.log(`Reading in ${inputFile}`);
 
     const updatedHtml = await downloadAndEmbedImages(html);
-
-    console.log(updatedHtml);
 
     console.log(`Writing out ${updatedHtml}`);
     fs.writeFileSync(outputFile, updatedHtml, 'utf8');
