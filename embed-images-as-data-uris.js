@@ -95,7 +95,7 @@ async function main() {
 
     const updatedHtml = await downloadAndEmbedImages(html);
 
-    console.log(`Writing out ${updatedHtml}`);
+    console.log(`Writing out ${outputFile}`);
     fs.writeFileSync(outputFile, updatedHtml, 'utf8');
 }
 
